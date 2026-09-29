@@ -1,3 +1,6 @@
+; !name= MBGA
+; !desc= Make Bilibili Great Again
+
 hostname = app.bilibili.com, app.bilibili.net
 
 ^https?:\/\/app\.bilibili\.(?:com|net)\/x\/v2\/search\/square url reject-dict

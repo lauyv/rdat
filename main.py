@@ -14,32 +14,45 @@ import yaml
 # Constants
 # ═══════════════════════════════════════════════════════════════════════════════
 
+BLOCK_DOMAIN = (
+    "upos-sz-mirror14b.bilivideo.com",
+    # 农业银行代理检测，非广告
+    "msmp.abchina.com.cn",
+)
+
 BLOCK_DOMAIN_SUFFIX = (
-    "miaozhen.com",
-    "tqt.weibo.cn",
-    "qzs.gdtimg.com",
+    # 投放、统计、监测
+    "adanxing.com",
+    "addnewer.com",
+    "domob.cn",
     "adsmind.gdtimg.com",
-    "gdt.qq.com",
-    "mazu.m.qq.com",
+    "qzs.gdtimg.com",
+    "gridsum.com",
+    "in-neo.com",
     "e.kuaishou.cn",
-    "e.kuaishou.com",
+    "promotion-partner.kuaishou.com",
+    "mix-mind.com",
+    "mazu.m.qq.com",
+    "rtbasia.com",
+    "shenshiads.com",
     "umeng.com",
     "umengcloud.com",
-    "fapi.xdrun.com",
-    "mix-mind.com",
-    "in-neo.com",
-    "rtbasia.com",
-    "gridsum.com",
-    "addnewer.com",
-    "msmp.abchina.com.cn",
-    "statics.adanxing.com",
-    "promotion-partner.kuaishou.com",
-    "qttunion.com",
-    "1sapp.com",
-    "shenshiads.com",
-    "domob.cn",
-    "aiclk.com",
-    "guanggao-prod.cn-shanghai.log.aliyuncs.com",
+    "tqt.weibo.cn",
+    # P2P
+    "ahdohpiechei.com",
+    "mcdn.bilivideo.cn",
+    "mcdn.bilivideo.com",
+    "mcdn.bilivideo.net",
+    "nexusedgeio.com",
+    "szbdyd.com",
+)
+
+BLOCK_DOMAIN_REGEX = (
+    # P2P
+    r"^.*302.*\.bilivideo\.com$",
+    r"^.*-pcdn-.*\.biliapi\.net$",
+    r"^.*-p2p-.*\.chat\.bilibili\.com$",
+    r"^.*-live-tracker-.*\.chat\.bilibili\.com$",
 )
 
 DIRECT_DOMAIN = ("api.github.com",)
@@ -93,11 +106,7 @@ def parse_dlc_plain(url: str, tags: tuple[str, ...]) -> GeoSiteRules:
 
     remaining = set(tags)
     result: GeoSiteRules = {}
-    attribute_targets = {
-        attribute: tag
-        for attribute, tag in (("cn", "geolocation-cn"), ("ads", "category-ads-all"))
-        if tag in tags
-    }
+    attribute_targets = {"cn": "geolocation-cn"} if "geolocation-cn" in tags else {}
     attribute_rules: GeoSiteRules = {
         attribute: ([], [], [], []) for attribute in attribute_targets
     }
@@ -136,6 +145,54 @@ def parse_dlc_plain(url: str, tags: tuple[str, ...]) -> GeoSiteRules:
         for destination, additions in zip(result[target], attribute_rules[attribute]):
             destination[:] = dict.fromkeys(destination + additions)
     return result
+
+
+def parse_reject_filter_text(content: bytes) -> DomainResult:
+    """Extract active domain reject rules from a Quantumult X filter list."""
+    try:
+        lines = content.decode("utf-8-sig").splitlines()
+    except UnicodeDecodeError as error:
+        raise ValueError("Invalid UTF-8 reject filter") from error
+
+    rule_indexes = {"host": 0, "domain": 0, "host-suffix": 1, "host-keyword": 2}
+    unsupported_types = {"ip-cidr", "ip6-cidr", "user-agent"}
+    values: DomainResult = ([], [], [], [])
+    skipped = 0
+    for line_number, raw_line in enumerate(lines, 1):
+        line = raw_line.strip()
+        if not line or line.startswith(("#", ";")):
+            continue
+        fields = [field.strip() for field in line.split(",")]
+        if len(fields) != 3 or not fields[1] or fields[2].lower() != "reject":
+            raise ValueError(
+                f"Invalid reject filter rule at line {line_number}: {line!r}"
+            )
+        rule_type = fields[0].lower()
+        if rule_type in unsupported_types:
+            skipped += 1
+        elif rule_type in rule_indexes:
+            values[rule_indexes[rule_type]].append(fields[1])
+        else:
+            raise ValueError(
+                f"Unsupported reject filter rule at line {line_number}: {line!r}"
+            )
+
+    if not any(values):
+        raise ValueError("Reject filter contains no domain rules")
+    for rules in values:
+        rules[:] = dict.fromkeys(rules)
+    log.info(
+        "Parsed reject filter: %d domain rules; skipped %d non-domain rules",
+        sum(map(len, values)),
+        skipped,
+    )
+    return values
+
+
+def parse_reject_filter(url: str) -> DomainResult:
+    log.info("Downloading %s", url)
+    with urlopen(url) as response:
+        return parse_reject_filter_text(response.read())
 
 
 def _gfwlist_host(rule: str) -> str:
@@ -249,6 +306,11 @@ def release(
     """Generate output files (Surge, Clash, QuanX, sing-box) for *tag*."""
     log.info("Releasing tag: %s", tag)
     domain, domain_suffix = clean_domains(domain, domain_suffix)
+    if tag == "reject":
+        domain = sorted(domain, key=str.casefold)
+        domain_suffix = sorted(domain_suffix, key=str.casefold)
+        domain_keyword = sorted(domain_keyword, key=str.casefold)
+        domain_regex = sorted(domain_regex, key=str.casefold)
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = [
@@ -280,15 +342,15 @@ def release(
 def release_surge_file(tag: str, domain: list[str], domain_suffix: list[str]) -> None:
     filename = f"dist/{tag}.list"
     with open(filename, "w") as f:
-        f.writelines(s + "\n" for s in domain)
-        f.writelines("." + s + "\n" for s in domain_suffix)
+        f.writelines(value + "\n" for value in domain)
+        f.writelines("." + value + "\n" for value in domain_suffix)
 
 
 def release_clash_file(tag: str, domain: list[str], domain_suffix: list[str]) -> None:
     filename = f"dist/{tag}.yaml"
     with open(filename, "w") as f:
         yaml.dump(
-            {"payload": domain + ["." + s for s in domain_suffix]},
+            {"payload": domain + ["." + value for value in domain_suffix]},
             f,
             default_flow_style=False,
             allow_unicode=True,
@@ -304,9 +366,9 @@ def release_quanx_file(
 ) -> None:
     filename = f"dist/{tag}.quanx"
     with open(filename, "w", buffering=65536) as f:
-        f.writelines(f"host, {s}, {policy}\n" for s in domain)
-        f.writelines(f"host-suffix, {s}, {policy}\n" for s in domain_suffix)
-        f.writelines(f"host-keyword, {s}, {policy}\n" for s in domain_keyword)
+        f.writelines(f"host, {value}, {policy}\n" for value in domain)
+        f.writelines(f"host-suffix, {value}, {policy}\n" for value in domain_suffix)
+        f.writelines(f"host-keyword, {value}, {policy}\n" for value in domain_keyword)
 
 
 def release_singbox_file(
@@ -432,7 +494,11 @@ def clean_domains(
         return False
 
     return (
-        [value for value in dict.fromkeys(domain) if not covered(value)],
+        [
+            value
+            for value in dict.fromkeys(domain)
+            if value not in unique_suffixes and not covered(value)
+        ],
         [value for value in unique_suffixes if not covered(value)],
     )
 
@@ -455,7 +521,6 @@ def main() -> None:
 
 def _run() -> None:
     rule_tags = (
-        ("category-ads-all", "reject", (), BLOCK_DOMAIN_SUFFIX),
         ("geolocation-!cn", "loc-!cn", (), ()),
         ("geolocation-cn", "loc-cn", DIRECT_DOMAIN, DIRECT_DOMAIN_SUFFIX),
     )
@@ -465,6 +530,13 @@ def _run() -> None:
     )
 
     geosite_rules: GeoSiteRules = {}
+    reject_rules = parse_reject_filter(
+        "https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/filter/filter.list"
+    )
+    reject_rules[0].extend(BLOCK_DOMAIN)
+    reject_rules[1].extend(BLOCK_DOMAIN_SUFFIX)
+    reject_rules[3].extend(BLOCK_DOMAIN_REGEX)
+    geosite_rules["reject"] = release(*reject_rules, "reject", quanx_policy="reject")
     for upstream_tag, output_tag, extra_domains, extra_suffixes in rule_tags:
         domain, domain_suffix, domain_keyword, domain_regex = upstream_rules[
             upstream_tag

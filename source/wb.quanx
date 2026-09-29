@@ -1,3 +1,6 @@
+;!name= MWGA
+;!desc= Make Weibo Great Again
+
 hostname = api.weibo.cn, api.weibo.com, weibointl.api.weibo.cn, weibointl.api.weibo.com, boot*.weibo.com, *.uve.weibo.com
 
 ^https?:\/\/(sdk|wb)app\.uve\.weibo\.com\/(interface\/sdk\/sdkad\.php|wbapplua\/wbpullad\.lua) url reject-dict
