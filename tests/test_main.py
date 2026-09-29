@@ -150,7 +150,7 @@ class ReleaseTests(unittest.TestCase):
                     rules = release(
                         ["z.example", "a.example"],
                         ["m.example", "b.example"],
-                        ["zz", "aa"],
+                        ["zz", "aa", "c.example", "b.example"],
                         ["^z", "^a"],
                         "reject",
                         quanx_policy="reject",
@@ -163,9 +163,12 @@ class ReleaseTests(unittest.TestCase):
 
         self.assertEqual(
             rules,
-            (["a.example", "z.example"], ["b.example", "m.example"], ["aa", "zz"], ["^a", "^z"]),
+            (["a.example", "z.example"], ["b.example", "c.example", "m.example"], [], ["^a", "^z"]),
         )
-        self.assertEqual(surge, ["a.example", "z.example", ".b.example", ".m.example"])
+        self.assertEqual(
+            surge,
+            ["a.example", "z.example", ".b.example", ".c.example", ".m.example"],
+        )
         self.assertEqual(clash, surge)
         self.assertEqual(
             quanx,
@@ -173,9 +176,8 @@ class ReleaseTests(unittest.TestCase):
                 "host, a.example, reject",
                 "host, z.example, reject",
                 "host-suffix, b.example, reject",
+                "host-suffix, c.example, reject",
                 "host-suffix, m.example, reject",
-                "host-keyword, aa, reject",
-                "host-keyword, zz, reject",
             ],
         )
 

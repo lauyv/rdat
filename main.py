@@ -305,11 +305,14 @@ def release(
 ) -> DomainResult:
     """Generate output files (Surge, Clash, QuanX, sing-box) for *tag*."""
     log.info("Releasing tag: %s", tag)
+    domain_suffix = domain_suffix + [
+        value for value in domain_keyword if "." in value
+    ]
+    domain_keyword = []
     domain, domain_suffix = clean_domains(domain, domain_suffix)
     if tag == "reject":
         domain = sorted(domain, key=str.casefold)
         domain_suffix = sorted(domain_suffix, key=str.casefold)
-        domain_keyword = sorted(domain_keyword, key=str.casefold)
         domain_regex = sorted(domain_regex, key=str.casefold)
 
     with ThreadPoolExecutor(max_workers=4) as pool:
