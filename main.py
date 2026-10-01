@@ -15,7 +15,7 @@ import yaml
 # ═══════════════════════════════════════════════════════════════════════════════
 
 BLOCK_DOMAIN = (
-    "upos-sz-mirror14b.bilivideo.com",
+    "adx.halomobi.com",
     # 农业银行代理检测，非广告
     "msmp.abchina.com.cn",
 )
