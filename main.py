@@ -14,32 +14,51 @@ import yaml
 # Constants
 # ═══════════════════════════════════════════════════════════════════════════════
 
+BLOCK_DOMAIN = (
+    "adx.halomobi.com",
+    "tencent-ssp.66mobi.com",
+    "huichuan-mc.sm.cn",
+    "bridgeads.massx.com",
+    # 农业银行代理检测，非广告
+    "msmp.abchina.com.cn",
+)
+
 BLOCK_DOMAIN_SUFFIX = (
-    "miaozhen.com",
-    "tqt.weibo.cn",
-    "qzs.gdtimg.com",
+    # 投放、统计、监测
+    "adanxing.com",
+    "addnewer.com",
+    "domob.cn",
     "adsmind.gdtimg.com",
-    "gdt.qq.com",
-    "mazu.m.qq.com",
+    "qzs.gdtimg.com",
+    "gridsum.com",
+    "in-neo.com",
     "e.kuaishou.cn",
-    "e.kuaishou.com",
+    "promotion-partner.kuaishou.com",
+    "mix-mind.com",
+    "mazu.m.qq.com",
+    "rtbasia.com",
+    "shenshiads.com",
     "umeng.com",
     "umengcloud.com",
-    "fapi.xdrun.com",
-    "mix-mind.com",
-    "in-neo.com",
-    "rtbasia.com",
-    "gridsum.com",
-    "addnewer.com",
-    "msmp.abchina.com.cn",
-    "statics.adanxing.com",
-    "promotion-partner.kuaishou.com",
-    "qttunion.com",
-    "1sapp.com",
-    "shenshiads.com",
-    "domob.cn",
-    "aiclk.com",
-    "guanggao-prod.cn-shanghai.log.aliyuncs.com",
+    "tqt.weibo.cn",
+    # P2P
+    "ahdohpiechei.com",
+    "nexusedgeio.com",
+    "szbdyd.com",
+    # 北京享点文化
+    "xdrun.com",
+    "xdmssp.com",
+    "xdgalaxy.com",
+    "touch-moblie.com",
+)
+
+
+BLOCK_DOMAIN_REGEX = (
+    # P2P
+    r"^.*302.*\.bilivideo\.com$",
+    r"^.*-pcdn-.*\.biliapi\.net$",
+    r"^.*-p2p-.*\.chat\.bilibili\.com$",
+    r"^.*-live-tracker-.*\.chat\.bilibili\.com$",
 )
 
 DIRECT_DOMAIN = ("api.github.com",)
@@ -249,6 +268,11 @@ def release(
     """Generate output files (Surge, Clash, QuanX, sing-box) for *tag*."""
     log.info("Releasing tag: %s", tag)
     domain, domain_suffix = clean_domains(domain, domain_suffix)
+    if tag == "reject":
+        domain = sorted(domain, key=str.casefold)
+        domain_suffix = sorted(domain_suffix, key=str.casefold)
+        domain_keyword = sorted(domain_keyword, key=str.casefold)
+        domain_regex = sorted(domain_regex, key=str.casefold)
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = [
@@ -280,15 +304,15 @@ def release(
 def release_surge_file(tag: str, domain: list[str], domain_suffix: list[str]) -> None:
     filename = f"dist/{tag}.list"
     with open(filename, "w") as f:
-        f.writelines(s + "\n" for s in domain)
-        f.writelines("." + s + "\n" for s in domain_suffix)
+        f.writelines(value + "\n" for value in domain)
+        f.writelines("." + value + "\n" for value in domain_suffix)
 
 
 def release_clash_file(tag: str, domain: list[str], domain_suffix: list[str]) -> None:
     filename = f"dist/{tag}.yaml"
     with open(filename, "w") as f:
         yaml.dump(
-            {"payload": domain + ["." + s for s in domain_suffix]},
+            {"payload": domain + ["." + value for value in domain_suffix]},
             f,
             default_flow_style=False,
             allow_unicode=True,
@@ -304,9 +328,9 @@ def release_quanx_file(
 ) -> None:
     filename = f"dist/{tag}.quanx"
     with open(filename, "w", buffering=65536) as f:
-        f.writelines(f"host, {s}, {policy}\n" for s in domain)
-        f.writelines(f"host-suffix, {s}, {policy}\n" for s in domain_suffix)
-        f.writelines(f"host-keyword, {s}, {policy}\n" for s in domain_keyword)
+        f.writelines(f"host, {value}, {policy}\n" for value in domain)
+        f.writelines(f"host-suffix, {value}, {policy}\n" for value in domain_suffix)
+        f.writelines(f"host-keyword, {value}, {policy}\n" for value in domain_keyword)
 
 
 def release_singbox_file(
@@ -432,7 +456,11 @@ def clean_domains(
         return False
 
     return (
-        [value for value in dict.fromkeys(domain) if not covered(value)],
+        [
+            value
+            for value in dict.fromkeys(domain)
+            if value not in unique_suffixes and not covered(value)
+        ],
         [value for value in unique_suffixes if not covered(value)],
     )
 
@@ -455,16 +483,20 @@ def main() -> None:
 
 def _run() -> None:
     rule_tags = (
-        ("category-ads-all", "reject", (), BLOCK_DOMAIN_SUFFIX),
         ("geolocation-!cn", "loc-!cn", (), ()),
         ("geolocation-cn", "loc-cn", DIRECT_DOMAIN, DIRECT_DOMAIN_SUFFIX),
     )
     upstream_rules = parse_dlc_plain(
         "https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat_plain.yml",
-        tuple(rule[0] for rule in rule_tags),
+        ("category-ads-all", *(rule[0] for rule in rule_tags)),
     )
 
     geosite_rules: GeoSiteRules = {}
+    reject_rules = upstream_rules["category-ads-all"]
+    reject_rules[0].extend(BLOCK_DOMAIN)
+    reject_rules[1].extend(BLOCK_DOMAIN_SUFFIX)
+    reject_rules[3].extend(BLOCK_DOMAIN_REGEX)
+    geosite_rules["reject"] = release(*reject_rules, "reject", quanx_policy="reject")
     for upstream_tag, output_tag, extra_domains, extra_suffixes in rule_tags:
         domain, domain_suffix, domain_keyword, domain_regex = upstream_rules[
             upstream_tag

@@ -38,12 +38,18 @@
         "action": "respond"
       },
       {
+        "match_response": true,
+        "ip_accept_any": true,
+        "invert": true,
+        "action": "respond"
+      },
+      {
         "query_type": ["A", "AAAA"],
         "server": "dns_fakeip",
         "rewrite_ttl": 1
       }
     ],
-    "strategy": "ipv4_only",
+    "strategy": "prefer_ipv4",
     "optimistic": true
   },
   "http_clients": [
@@ -60,8 +66,8 @@
       "tag": "tun-in",
       "address": ["172.18.0.1/30", "fdfe:dcba:9876::1/126"],
       "auto_route": true,
-      "udp_timeout": "2m0s",
-      "stack": "mixed"
+      "auto_redirect": false,
+      "udp_timeout": "2m0s"
     }
   ],
   "outbounds": [
@@ -108,13 +114,13 @@
       {
         "type": "remote",
         "tag": "domestic",
-        "url": "https://ghfast.top/https://github.com/lauyv/rdat/raw/rel/loc-cn.srs",
+        "url": "https://gh-proxy.org/https://github.com/lauyv/rdat/raw/rel/loc-cn.srs",
         "update_interval": "6h0m0s"
       },
       {
         "type": "remote",
         "tag": "geoip_cn",
-        "url": "https://ghfast.top/https://github.com/lauyv/cnip/raw/main/chnroutes.srs",
+        "url": "https://gh-proxy.org/https://github.com/lauyv/cnip/raw/rel/chnroutes.srs",
         "update_interval": "6h0m0s"
       }
     ],
@@ -132,7 +138,7 @@
       "dashboard": {
         "enabled": true,
         "path": "zashboard",
-        "download_url": "https://github.com/Zephyruso/zashboard/releases/download/v3.22.0/dist-cdn-fonts.zip"
+        "download_url": "https://gh-proxy.org/https://github.com/Zephyruso/zashboard/releases/download/v3.22.0/dist-cdn-fonts.zip"
       }
     }
   ],

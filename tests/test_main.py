@@ -7,7 +7,17 @@ from unittest.mock import patch
 
 import yaml
 
-from main import parse_dlc_plain, parse_gfwlist_text, release_quanx_file
+from main import (
+    BLOCK_DOMAIN,
+    BLOCK_DOMAIN_REGEX,
+    BLOCK_DOMAIN_SUFFIX,
+    _run,
+    clean_domains,
+    parse_dlc_plain,
+    parse_gfwlist_text,
+    release,
+    release_quanx_file,
+)
 
 
 class ParseDLCTests(unittest.TestCase):
@@ -108,6 +118,91 @@ class ParseDLCTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "Missing DLC tags: geolocation-cn"),
         ):
             parse_dlc_plain("fixture", ("geolocation-cn",))
+
+
+class RunTests(unittest.TestCase):
+    def test_run_merges_manual_suffixes_and_uses_reject_policy(self) -> None:
+        upstream = {
+            "category-ads-all": (["ads.example"], ["upstream.example"], [], []),
+            "geolocation-!cn": ([], ["foreign.example"], [], []),
+            "geolocation-cn": ([], ["local.example"], [], []),
+        }
+        gfwlist = {tag: ([], [], [], []) for tag in ("gfw", "gfw-skip")}
+        with (
+            patch("main.parse_dlc_plain", return_value=upstream) as parse_dlc,
+            patch("main.release", side_effect=lambda *args, **kwargs: args[:4]) as release,
+            patch("main.parse_gfwlist", return_value=gfwlist),
+            patch("main.release_geosite_files"),
+        ):
+            _run()
+
+        self.assertEqual(
+            parse_dlc.call_args.args[1],
+            ("category-ads-all", "geolocation-!cn", "geolocation-cn"),
+        )
+        args, kwargs = release.call_args_list[0]
+        self.assertEqual(args[0], ["ads.example", *BLOCK_DOMAIN])
+        self.assertEqual(args[1], ["upstream.example", *BLOCK_DOMAIN_SUFFIX])
+        self.assertEqual(args[3], list(BLOCK_DOMAIN_REGEX))
+        self.assertEqual(args[4], "reject")
+        self.assertEqual(kwargs, {"quanx_policy": "reject"})
+
+
+class CleanDomainsTests(unittest.TestCase):
+    def test_removes_exact_domains_and_child_suffixes_covered_by_a_suffix(self) -> None:
+        self.assertEqual(
+            clean_domains(
+                ["example.com", "ads.example.com", "other.example", "other.example"],
+                ["example.com", "ads.example.com", "example.com"],
+            ),
+            (["other.example"], ["example.com"]),
+        )
+
+
+class ReleaseTests(unittest.TestCase):
+    def test_reject_output_is_sorted_within_each_rule_type(self) -> None:
+        previous_cwd = Path.cwd()
+        with tempfile.TemporaryDirectory() as directory:
+            os.chdir(directory)
+            try:
+                Path("dist").mkdir()
+                with patch("main.release_singbox_file"):
+                    rules = release(
+                        ["z.example", "a.example"],
+                        ["m.example", "b.example"],
+                        ["zz", "aa", "c.example", "b.example"],
+                        ["^z", "^a"],
+                        "reject",
+                        quanx_policy="reject",
+                    )
+                surge = Path("dist/reject.list").read_text().splitlines()
+                clash = yaml.safe_load(Path("dist/reject.yaml").read_text())["payload"]
+                quanx = Path("dist/reject.quanx").read_text().splitlines()
+            finally:
+                os.chdir(previous_cwd)
+
+        self.assertEqual(
+            rules,
+            (["a.example", "z.example"], ["b.example", "m.example"], ["aa", "b.example", "c.example", "zz"], ["^a", "^z"]),
+        )
+        self.assertEqual(
+            surge,
+            ["a.example", "z.example", ".b.example", ".m.example"],
+        )
+        self.assertEqual(clash, surge)
+        self.assertEqual(
+            quanx,
+            [
+                "host, a.example, reject",
+                "host, z.example, reject",
+                "host-suffix, b.example, reject",
+                "host-suffix, m.example, reject",
+                "host-keyword, aa, reject",
+                "host-keyword, b.example, reject",
+                "host-keyword, c.example, reject",
+                "host-keyword, zz, reject",
+            ],
+        )
 
 
 class ParseGFWListTests(unittest.TestCase):

@@ -1,17 +1,12 @@
-#!name= Block Bilibili Advertising
-#!desc= 去除B站客户端广告，调整其UI
+#!name= MBGA
+#!desc= Make Bilibili Great Again
 #!system=ios
 
 [Rule]
 DOMAIN,upos-sz-mirror14b.bilivideo.com,REJECT,pre-matching
-DOMAIN-SUFFIX,mcdn.bilivideo.com,REJECT,pre-matching
-DOMAIN-SUFFIX,mcdn.bilivideo.cn,REJECT,pre-matching
-DOMAIN-SUFFIX,mcdn.bilivideo.net,REJECT,pre-matching
 DOMAIN-SUFFIX,nexusedgeio.com,REJECT,pre-matching
 DOMAIN-SUFFIX,ahdohpiechei.com,REJECT,pre-matching
 DOMAIN-SUFFIX,szbdyd.com,REJECT,pre-matching
-DOMAIN-KEYWORD,302ppio,REJECT,pre-matching
-DOMAIN-KEYWORD,302kodo,REJECT,pre-matching
 DOMAIN-WILDCARD,*302*.bilivideo.com,REJECT,pre-matching
 DOMAIN-WILDCARD,*-pcdn-*.biliapi.net,REJECT,pre-matching
 DOMAIN-WILDCARD,*-p2p-*.chat.bilibili.com,REJECT,pre-matching
