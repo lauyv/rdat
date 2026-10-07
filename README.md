@@ -76,5 +76,6 @@ uv run python main.py
 
 感谢以下项目提供规则数据：
 
+- [fmz200/wool_scripts](https://github.com/fmz200/wool_scripts)
 - [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community)
 - [gfwlist/gfwlist](https://github.com/gfwlist/gfwlist)

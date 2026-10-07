@@ -160,7 +160,7 @@ class CleanDomainsTests(unittest.TestCase):
 
 
 class ReleaseTests(unittest.TestCase):
-    def test_reject_output_is_sorted_within_each_rule_type(self) -> None:
+    def test_reject_output_preserves_order_within_each_rule_type(self) -> None:
         previous_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as directory:
             os.chdir(directory)
@@ -183,24 +183,24 @@ class ReleaseTests(unittest.TestCase):
 
         self.assertEqual(
             rules,
-            (["a.example", "z.example"], ["b.example", "m.example"], ["aa", "b.example", "c.example", "zz"], ["^a", "^z"]),
+            (["z.example", "a.example"], ["m.example", "b.example"], ["zz", "aa", "c.example", "b.example"], ["^z", "^a"]),
         )
         self.assertEqual(
             surge,
-            ["a.example", "z.example", ".b.example", ".m.example"],
+            ["z.example", "a.example", ".m.example", ".b.example"],
         )
         self.assertEqual(clash, surge)
         self.assertEqual(
             quanx,
             [
-                "host, a.example, reject",
                 "host, z.example, reject",
-                "host-suffix, b.example, reject",
+                "host, a.example, reject",
                 "host-suffix, m.example, reject",
-                "host-keyword, aa, reject",
-                "host-keyword, b.example, reject",
-                "host-keyword, c.example, reject",
+                "host-suffix, b.example, reject",
                 "host-keyword, zz, reject",
+                "host-keyword, aa, reject",
+                "host-keyword, c.example, reject",
+                "host-keyword, b.example, reject",
             ],
         )
 

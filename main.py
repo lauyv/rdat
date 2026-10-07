@@ -15,50 +15,45 @@ import yaml
 # ═══════════════════════════════════════════════════════════════════════════════
 
 BLOCK_DOMAIN = (
-    "adx.halomobi.com",
-    "tencent-ssp.66mobi.com",
-    "huichuan-mc.sm.cn",
-    "bridgeads.massx.com",
     # 农业银行代理检测，非广告
     "msmp.abchina.com.cn",
 )
 
 BLOCK_DOMAIN_SUFFIX = (
-    # 投放、统计、监测
-    "adanxing.com",
+    # 广告联盟
+    "tencent-ssp.66mobi.com",
+    "statics.adanxing.com",
     "addnewer.com",
     "domob.cn",
     "adsmind.gdtimg.com",
     "qzs.gdtimg.com",
     "gridsum.com",
+    "gridsumdissector.com",
+    "adx.halomobi.com",
     "in-neo.com",
-    "e.kuaishou.cn",
     "promotion-partner.kuaishou.com",
+    "bridgeads.massx.com",
+    "miaozhen.com",
     "mix-mind.com",
     "mazu.m.qq.com",
-    "rtbasia.com",
     "shenshiads.com",
-    "umeng.com",
-    "umengcloud.com",
-    "tqt.weibo.cn",
-    # P2P
+    "huichuan-mc.sm.cn",
+    "tunion-api.m.taobao.com",
+    "api.touch-moblie.com",
+    "fapi.xdrun.com",
+    # pcdn
     "ahdohpiechei.com",
+    "mountaintoys.cn",
     "nexusedgeio.com",
     "szbdyd.com",
-    # 北京享点文化
-    "xdrun.com",
-    "xdmssp.com",
-    "xdgalaxy.com",
-    "touch-moblie.com",
 )
 
 
 BLOCK_DOMAIN_REGEX = (
-    # P2P
+    # pcdn
     r"^.*302.*\.bilivideo\.com$",
-    r"^.*-pcdn-.*\.biliapi\.net$",
-    r"^.*-p2p-.*\.chat\.bilibili\.com$",
-    r"^.*-live-tracker-.*\.chat\.bilibili\.com$",
+    r"^.*pcdn.*\.biliapi\.net$",
+    r"^.*tracker.*\.biliapi\.net$",
 )
 
 DIRECT_DOMAIN = ("api.github.com",)
@@ -268,11 +263,6 @@ def release(
     """Generate output files (Surge, Clash, QuanX, sing-box) for *tag*."""
     log.info("Releasing tag: %s", tag)
     domain, domain_suffix = clean_domains(domain, domain_suffix)
-    if tag == "reject":
-        domain = sorted(domain, key=str.casefold)
-        domain_suffix = sorted(domain_suffix, key=str.casefold)
-        domain_keyword = sorted(domain_keyword, key=str.casefold)
-        domain_regex = sorted(domain_regex, key=str.casefold)
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = [
