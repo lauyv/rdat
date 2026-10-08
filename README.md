@@ -4,15 +4,11 @@
 
 ## 规则
 
-生成以下五个标签：
+生成以下三个标签：
 
 - `reject`：合并 `v2fly/domain-list-community` 的 `category-ads-all`、所有列表中带 `@ads` 属性的规则及手工补充
-- `gfw`：代理域名
-- `gfw-skip`：白名单、`category-public-tracker` 及补充直连域名
 - `loc-!cn`：非中国大陆域名
 - `loc-cn`：面向中国大陆网络的直连规则，包含带 `@cn` 属性的规则、`category-public-tracker` 及手工补充
-
-URL 及通配符规则会转换为域名规则，白名单例外单独写入 `gfw-skip`。
 
 `@cn` 和 `@ads` 按完整属性名匹配，不包含 `@!cn`、`@!ads` 等其他属性，合并后去重。同时带有 `@cn` 和 `@ads` 的规则会进入两个集合。`@cn` 不保证服务器位于境内。客户端应按 `reject` → `loc-cn` → `loc-!cn` 的顺序匹配，让广告拦截优先于直连，并处理可能存在的域名覆盖重叠。
 
@@ -28,7 +24,6 @@ GitHub Actions 每天构建一次，并在 `main` 更新时自动构建。产物
 | `<tag>.srs`       | sing-box Binary Rule Set                          |
 | `geosite.dat`     | V2Ray GeoSite，包含 `reject`、`loc-!cn`、`loc-cn` |
 | `geosite-cn.dat`  | V2Ray GeoSite，包含 `loc-cn`                      |
-| `geosite-gfw.dat` | V2Ray GeoSite，包含 `gfw`、`gfw-skip`             |
 | `ext/*.quanx`     | Quantumult X 重写规则                             |
 | `ext/*.sgmodule`  | Surge 模块                                        |
 
@@ -78,4 +73,3 @@ uv run python main.py
 
 - [fmz200/wool_scripts](https://github.com/fmz200/wool_scripts)
 - [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community)
-- [gfwlist/gfwlist](https://github.com/gfwlist/gfwlist)

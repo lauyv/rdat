@@ -14,9 +14,7 @@ from main import (
     _run,
     clean_domains,
     parse_dlc_plain,
-    parse_gfwlist_text,
     release,
-    release_quanx_file,
 )
 
 
@@ -131,11 +129,9 @@ class RunTests(unittest.TestCase):
                 [r"^tracker[0-9]+\.example$"],
             ),
         }
-        gfwlist = {tag: ([], [], [], []) for tag in ("gfw", "gfw-skip")}
         with (
             patch("main.parse_dlc_plain", return_value=upstream) as parse_dlc,
             patch("main.release", side_effect=lambda *args, **kwargs: args[:4]) as release,
-            patch("main.parse_gfwlist", return_value=gfwlist),
             patch("main.release_geosite_files"),
         ):
             _run()
@@ -150,12 +146,13 @@ class RunTests(unittest.TestCase):
         self.assertEqual(args[3], list(BLOCK_DOMAIN_REGEX))
         self.assertEqual(args[4], "reject")
         self.assertEqual(kwargs, {"quanx_policy": "reject"})
-        for call_index in (2, 4):  # loc-cn and gfw-skip
-            direct_args = release.call_args_list[call_index].args
-            for values, additions in zip(direct_args[:4], upstream["category-public-tracker"]):
-                for value in additions:
-                    self.assertIn(value, values)
-        self.assertEqual(release.call_args_list[4].kwargs, {"quanx_policy": "direct"})
+        direct_args = release.call_args_list[2].args
+        self.assertEqual(direct_args[4], "loc-cn")
+        for values, additions in zip(direct_args[:4], upstream["category-public-tracker"]):
+            for value in additions:
+                self.assertIn(value, values)
+        self.assertEqual(len(release.call_args_list), 3)
+
 
 
 class CleanDomainsTests(unittest.TestCase):
@@ -212,58 +209,6 @@ class ReleaseTests(unittest.TestCase):
                 "host-keyword, c.example, reject",
                 "host-keyword, b.example, reject",
             ],
-        )
-
-
-class ParseGFWListTests(unittest.TestCase):
-    def test_converts_current_autoproxy_rule_forms(self) -> None:
-        source = r"""[AutoProxy 0.2.9]
-! metadata
-||example.com
-||cdn*.assets.example/path
-|https://exact.example/a/path
-|http://*.wild.example/
-plain.example
-/^https?:\/\/[^\/]+blogspot\.(.*)/
-@@||direct.example
-@@/^https?:\/\/(?=.*?(2x3|ni5|j5o))[a-z0-9.-]+\.xn--ngstr-lra8j\.com$
-"""
-
-        rules = parse_gfwlist_text(source.encode())
-        domain, domain_suffix, domain_keyword, domain_regex = rules["gfw"]
-
-        self.assertEqual(domain, ["exact.example", "plain.example"])
-        self.assertEqual(
-            domain_suffix, ["example.com", "assets.example", "wild.example"]
-        )
-        self.assertEqual(domain_keyword, [])
-        self.assertEqual(domain_regex, [r"[^\/]+blogspot\.(.*)"])
-        self.assertEqual(rules["gfw-skip"][1], ["direct.example"])
-        self.assertEqual(
-            rules["gfw-skip"][3],
-            [r"^[a-z0-9.-]*(?:2x3|ni5|j5o)[a-z0-9.-]*\.xn--ngstr-lra8j\.com$"],
-        )
-
-    def test_rejects_non_gfwlist_data(self) -> None:
-        with self.assertRaisesRegex(ValueError, "header"):
-            parse_gfwlist_text(b"not a gfwlist")
-
-    def test_gfw_quanx_rules_use_proxy_policy(self) -> None:
-        previous_cwd = Path.cwd()
-        with tempfile.TemporaryDirectory() as directory:
-            os.chdir(directory)
-            try:
-                Path("dist").mkdir()
-                release_quanx_file(
-                    "gfw", ["exact.example"], ["suffix.example"], [], "proxy"
-                )
-                output = Path("dist/gfw.quanx").read_text()
-            finally:
-                os.chdir(previous_cwd)
-
-        self.assertEqual(
-            output,
-            "host, exact.example, proxy\nhost-suffix, suffix.example, proxy\n",
         )
 
 

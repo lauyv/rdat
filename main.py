@@ -1,11 +1,9 @@
 import json
 import logging
 import os
-import re
 import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 import yaml
@@ -96,8 +94,6 @@ GEOSITE_TAGS = (
     "loc-cn",
 )
 
-GFWLIST_TAGS = ("gfw", "gfw-skip")
-
 
 def parse_dlc_plain(url: str, tags: tuple[str, ...]) -> GeoSiteRules:
     """Extract flattened tags and supplement them with matching global attributes."""
@@ -150,100 +146,6 @@ def parse_dlc_plain(url: str, tags: tuple[str, ...]) -> GeoSiteRules:
         for destination, additions in zip(result[target], attribute_rules[attribute]):
             destination[:] = dict.fromkeys(destination + additions)
     return result
-
-
-def _gfwlist_host(rule: str) -> str:
-    """Extract a host from an AutoProxy URL or domain-anchor rule."""
-    if rule.startswith("||"):
-        return re.split(r"[/:^|]", rule[2:], maxsplit=1)[0]
-
-    parsed = urlsplit(rule.removeprefix("|"))
-    return parsed.hostname or ""
-
-
-def _append_gfwlist_host(
-    host: str, domain: list[str], domain_suffix: list[str], *, suffix: bool
-) -> None:
-    host = host.lower().strip(".")
-    if not host:
-        raise ValueError("GFWList rule has no host")
-
-    if "*" in host:
-        # Domain-only formats cannot retain a wildcard label. Keep the stable
-        # suffix after the final wildcard so all generated clients agree.
-        host = host.rsplit("*", maxsplit=1)[1].lstrip(".")
-        if not host:
-            raise ValueError("GFWList wildcard rule has no domain suffix")
-        suffix = True
-
-    (domain_suffix if suffix else domain).append(host)
-
-
-def _append_gfwlist_rule(rule: str, values: DomainResult) -> None:
-    domain, domain_suffix, _, domain_regex = values
-    if rule.startswith("/"):
-        pattern = rule[1:-1] if rule.endswith("/") else rule[1:]
-        # GFWList regexes match complete URLs. Generated GeoSite/sing-box
-        # files match domains, so remove the anchored URL-scheme portion.
-        pattern = pattern.removeprefix(r"^https?:\/\/")
-        lookahead = re.fullmatch(r"\(\?=\.\*\?\(([^)]+)\)\)(\[[^]]+\])\+(.*)", pattern)
-        if lookahead:
-            alternatives, character_class, tail = lookahead.groups()
-            pattern = f"^{character_class}*(?:{alternatives}){character_class}*{tail}"
-        domain_regex.append(pattern)
-        return
-    if rule.startswith("||"):
-        _append_gfwlist_host(_gfwlist_host(rule), domain, domain_suffix, suffix=True)
-        return
-    if rule.startswith(("|http://", "|https://")):
-        _append_gfwlist_host(_gfwlist_host(rule), domain, domain_suffix, suffix=False)
-        return
-    if re.fullmatch(r"[A-Za-z0-9._-]+", rule):
-        _append_gfwlist_host(rule, domain, domain_suffix, suffix=False)
-        return
-    raise ValueError(f"Unsupported GFWList rule: {rule!r}")
-
-
-def parse_gfwlist_text(content: bytes) -> GeoSiteRules:
-    """Convert the plaintext AutoProxy GFWList into domain-only rule sets."""
-    try:
-        text = content.decode()
-    except UnicodeDecodeError as error:
-        raise ValueError("Invalid UTF-8 GFWList") from error
-    if not text.startswith("[AutoProxy "):
-        raise ValueError("Invalid GFWList header")
-
-    result: GeoSiteRules = {
-        "gfw": ([], [], [], []),
-        "gfw-skip": ([], [], [], []),
-    }
-
-    for raw_rule in text.splitlines():
-        rule = raw_rule.strip()
-        if not rule or rule.startswith(("!", "[")):
-            continue
-        tag = "gfw"
-        if rule.startswith("@@"):
-            tag = "gfw-skip"
-            rule = rule[2:]
-        _append_gfwlist_rule(rule, result[tag])
-
-    for tag, (domain, domain_suffix, _, domain_regex) in result.items():
-        log.info(
-            "Parsed GFWList tag %s: %d domains, %d suffixes, %d regexes",
-            tag,
-            len(domain),
-            len(domain_suffix),
-            len(domain_regex),
-        )
-    return result
-
-
-def parse_gfwlist(url: str) -> GeoSiteRules:
-    """Download and parse the official plaintext GFWList."""
-    log.info("Downloading %s", url)
-    with urlopen(url) as response:
-        return parse_gfwlist_text(response.read())
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -410,17 +312,11 @@ def write_geosite_file(filename: str, rules_by_tag: GeoSiteRules) -> None:
     log.info("Wrote GeoSite file: %s (%d tags)", filename, len(rules_by_tag))
 
 
-def release_geosite_files(
-    rules_by_tag: GeoSiteRules, gfwlist_rules: GeoSiteRules
-) -> None:
-    """Generate the general, CN-only, and GFWList GeoSite databases."""
+def release_geosite_files(rules_by_tag: GeoSiteRules) -> None:
+    """Generate the general and CN-only GeoSite databases."""
     complete_rules = {tag: rules_by_tag[tag] for tag in GEOSITE_TAGS}
     write_geosite_file("dist/geosite.dat", complete_rules)
     write_geosite_file("dist/geosite-cn.dat", {"loc-cn": rules_by_tag["loc-cn"]})
-    write_geosite_file(
-        "dist/geosite-gfw.dat",
-        {tag: gfwlist_rules[tag] for tag in GFWLIST_TAGS},
-    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -505,19 +401,7 @@ def _run() -> None:
             domain, domain_suffix, domain_keyword, domain_regex, output_tag
         )
 
-    gfwlist_rules = parse_gfwlist(
-        "https://raw.githubusercontent.com/gfwlist/gfwlist/master/list.txt"
-    )
-    for destination, additions in zip(gfwlist_rules["gfw-skip"], tracker_rules):
-        destination.extend(additions)
-    gfwlist_rules["gfw-skip"][0].extend(DIRECT_DOMAIN)
-    gfwlist_rules["gfw-skip"][1].extend(DIRECT_DOMAIN_SUFFIX)
-    for tag, quanx_policy in (("gfw", "proxy"), ("gfw-skip", "direct")):
-        gfwlist_rules[tag] = release(
-            *gfwlist_rules[tag], tag, quanx_policy=quanx_policy
-        )
-
-    release_geosite_files(geosite_rules, gfwlist_rules)
+    release_geosite_files(geosite_rules)
 
 
 if __name__ == "__main__":
