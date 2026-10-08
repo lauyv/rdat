@@ -28,8 +28,7 @@ GitHub Actions 每天构建一次，并在 `main` 更新时自动构建。产物
 | `<tag>.list`     | Surge Domain Set                                  |
 | `<tag>.quanx`    | Quantumult X Filter                               |
 | `<tag>.srs`      | sing-box Binary Rule Set                          |
-| `geosite.dat`    | V2Ray GeoSite，包含 `reject`、`loc-!cn`、`loc-cn` |
-| `geosite-cn.dat` | V2Ray GeoSite，包含 `loc-cn`                      |
+| `geosite.dat`    | V2Ray GeoSite，包含 `reject`、`loc-cn`、`loc-!cn` |
 | `ext/*.quanx`    | Quantumult X 重写规则                             |
 | `ext/*.sgmodule` | Surge 模块                                        |
 

@@ -320,10 +320,9 @@ def write_geosite_file(filename: str, rules_by_tag: GeoSiteRules) -> None:
 
 
 def release_geosite_files(rules_by_tag: GeoSiteRules) -> None:
-    """Generate the general and CN-only GeoSite databases."""
+    """Generate the GeoSite database containing all supported tags."""
     complete_rules = {tag: rules_by_tag[tag] for tag in GEOSITE_TAGS}
     write_geosite_file("dist/geosite.dat", complete_rules)
-    write_geosite_file("dist/geosite-cn.dat", {"loc-cn": rules_by_tag["loc-cn"]})
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
