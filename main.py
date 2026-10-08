@@ -8,6 +8,9 @@ from urllib.request import urlopen
 
 import yaml
 
+YAML_DUMPER = getattr(yaml, "CSafeDumper", yaml.SafeDumper)
+DOWNLOAD_TIMEOUT = 30
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Constants
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -101,7 +104,7 @@ GEOSITE_TAGS = (
 def parse_dlc_plain(url: str, tags: tuple[str, ...]) -> GeoSiteRules:
     """Extract flattened tags and supplement them with matching global attributes."""
     log.info("Downloading %s", url)
-    with urlopen(url) as response:
+    with urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response:
         lists = yaml.safe_load(response).get("lists", [])
 
     remaining = set(tags)
@@ -172,6 +175,8 @@ def release(
     """Generate output files (Surge, Clash, QuanX, sing-box) for *tag*."""
     log.info("Releasing tag: %s", tag)
     domain, domain_suffix = clean_domains(domain, domain_suffix)
+    domain_keyword = list(dict.fromkeys(domain_keyword))
+    domain_regex = list(dict.fromkeys(domain_regex))
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = [
@@ -213,6 +218,7 @@ def release_clash_file(tag: str, domain: list[str], domain_suffix: list[str]) ->
         yaml.dump(
             {"payload": domain + ["." + value for value in domain_suffix]},
             f,
+            Dumper=YAML_DUMPER,
             default_flow_style=False,
             allow_unicode=True,
         )
@@ -375,8 +381,8 @@ def main() -> None:
 
 def _run() -> None:
     rule_tags = (
-        ("geolocation-!cn", "loc-!cn", PROXY_DOMAIN, PROXY_DOMAIN_SUFFIX),
-        ("geolocation-cn", "loc-cn", DIRECT_DOMAIN, DIRECT_DOMAIN_SUFFIX),
+        ("geolocation-!cn", "loc-!cn", PROXY_DOMAIN, PROXY_DOMAIN_SUFFIX, "proxy"),
+        ("geolocation-cn", "loc-cn", DIRECT_DOMAIN, DIRECT_DOMAIN_SUFFIX, "direct"),
     )
     upstream_rules = parse_dlc_plain(
         "https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat_plain.yml",
@@ -397,15 +403,19 @@ def _run() -> None:
     reject_rules[1].extend(BLOCK_DOMAIN_SUFFIX)
     reject_rules[3].extend(BLOCK_DOMAIN_REGEX)
     geosite_rules["reject"] = release(*reject_rules, "reject", quanx_policy="reject")
-    for upstream_tag, output_tag, extra_domains, extra_suffixes in rule_tags:
+    for upstream_tag, output_tag, extra_domains, extra_suffixes, policy in rule_tags:
         domain, domain_suffix, domain_keyword, domain_regex = upstream_rules[
             upstream_tag
         ]
         domain.extend(extra_domains)
         domain_suffix.extend(extra_suffixes)
         geosite_rules[output_tag] = release(
-            domain, domain_suffix, domain_keyword, domain_regex, output_tag,
-            quanx_policy="proxy" if output_tag == "loc-!cn" else "direct",
+            domain,
+            domain_suffix,
+            domain_keyword,
+            domain_regex,
+            output_tag,
+            quanx_policy=policy,
         )
 
     release_geosite_files(geosite_rules)

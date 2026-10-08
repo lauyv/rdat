@@ -11,14 +11,21 @@ from main import (
     BLOCK_DOMAIN,
     BLOCK_DOMAIN_REGEX,
     BLOCK_DOMAIN_SUFFIX,
+    DOWNLOAD_TIMEOUT,
     _run,
     clean_domains,
     parse_dlc_plain,
     release,
+    release_clash_file,
 )
 
 
 class ParseDLCTests(unittest.TestCase):
+    def test_download_has_timeout(self):
+        with patch("main.urlopen", return_value=BytesIO(b"lists: []")) as download:
+            self.assertEqual(parse_dlc_plain("fixture", ()), {})
+        download.assert_called_once_with("fixture", timeout=DOWNLOAD_TIMEOUT)
+
     def test_collects_ads_and_keeps_shared_cn_rules_in_both_lists(self):
         ad_rules = [
             "full:shared.example:@cn,@ads",
@@ -192,24 +199,43 @@ class CleanDomainsTests(unittest.TestCase):
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_clash_dumpers_preserve_payload_and_string_types(self):
+        domains = ["z.example", "123", "yes", "例子.中国"]
+        suffixes = ["example.com", "中国"]
+        payload = {"payload": domains + ["." + value for value in suffixes]}
+        previous_cwd = Path.cwd()
+        with tempfile.TemporaryDirectory() as directory:
+            os.chdir(directory)
+            try:
+                Path("dist").mkdir()
+                for dumper in dict.fromkeys((yaml.SafeDumper, getattr(yaml, "CSafeDumper", yaml.SafeDumper))):
+                    with self.subTest(dumper=dumper.__name__), patch("main.YAML_DUMPER", dumper):
+                        release_clash_file("fixture", domains, suffixes)
+                        output = Path("dist/fixture.yaml").read_text()
+                        self.assertEqual(yaml.safe_load(output), payload)
+            finally:
+                os.chdir(previous_cwd)
+
     def test_reject_output_preserves_order_within_each_rule_type(self) -> None:
         previous_cwd = Path.cwd()
         with tempfile.TemporaryDirectory() as directory:
             os.chdir(directory)
             try:
                 Path("dist").mkdir()
-                with patch("main.release_singbox_file"):
+                with patch("main.release_singbox_file") as singbox:
                     rules = release(
                         ["z.example", "a.example"],
                         ["m.example", "b.example"],
-                        ["zz", "aa", "c.example", "b.example"],
-                        ["^z", "^a"],
+                        ["zz", "aa", "zz", "c.example", "b.example", "aa"],
+                        ["^z", "^a", "^z"],
                         "reject",
                         quanx_policy="reject",
                     )
                 surge = Path("dist/reject.list").read_text().splitlines()
                 clash = yaml.safe_load(Path("dist/reject.yaml").read_text())["payload"]
                 quanx = Path("dist/reject.quanx").read_text().splitlines()
+                self.assertEqual(singbox.call_args.args[3], ["^z", "^a"])
+                self.assertEqual(singbox.call_args.args[4], ["zz", "aa", "c.example", "b.example"])
             finally:
                 os.chdir(previous_cwd)
 
