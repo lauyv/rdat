@@ -107,7 +107,29 @@ class ParseDLCTests(unittest.TestCase):
                 [r"^cn[0-9]+\.example$"],
             ),
         )
-        self.assertEqual(rules["geolocation-!cn"], ([], ["apple.com"], [], []))
+        self.assertEqual(rules["geolocation-!cn"], (["foreign.example"], ["apple.com"], [], []))
+
+    def test_collects_negated_cn_with_exact_attributes_and_all_rule_types(self):
+        additions = [
+            "full:foreign.example:@ads,@!cn",
+            "domain:foreign.example:@!cn",
+            "keyword:foreign-service:@!cn",
+            r"regexp:^foreign[0-9]+\.example$:@!cn",
+        ]
+        source = {"lists": [
+            {"name": "vendor", "rules": additions + [
+                "full:similar.example:@!cn2", "full:local.example:@cn",
+                "full:untagged.example",
+            ]},
+            {"name": "geolocation-!cn", "rules": [additions[0]]},
+            {"name": "duplicate", "rules": additions},
+        ]}
+        with patch("main.urlopen", return_value=BytesIO(yaml.safe_dump(source).encode())):
+            rules = parse_dlc_plain("fixture", ("geolocation-!cn",))
+        self.assertEqual(rules["geolocation-!cn"], (
+            ["foreign.example"], ["foreign.example"], ["foreign-service"],
+            [r"^foreign[0-9]+\.example$"],
+        ))
 
     def test_missing_cn_list_is_still_an_error(self):
         source = b'lists:\n- name: apple\n  rules: ["full:example.com:@cn"]\n'
@@ -146,8 +168,11 @@ class RunTests(unittest.TestCase):
         self.assertEqual(args[3], list(BLOCK_DOMAIN_REGEX))
         self.assertEqual(args[4], "reject")
         self.assertEqual(kwargs, {"quanx_policy": "reject"})
+        self.assertEqual(release.call_args_list[1].args[4], "loc-!cn")
+        self.assertEqual(release.call_args_list[1].kwargs, {"quanx_policy": "proxy"})
         direct_args = release.call_args_list[2].args
         self.assertEqual(direct_args[4], "loc-cn")
+        self.assertEqual(release.call_args_list[2].kwargs, {"quanx_policy": "direct"})
         for values, additions in zip(direct_args[:4], upstream["category-public-tracker"]):
             for value in additions:
                 self.assertIn(value, values)

@@ -68,6 +68,9 @@ DIRECT_DOMAIN_SUFFIX = (
     "baozicdn.com",
 )
 
+PROXY_DOMAIN: tuple[str, ...] = ()
+PROXY_DOMAIN_SUFFIX: tuple[str, ...] = ()
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Logging
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -105,7 +108,11 @@ def parse_dlc_plain(url: str, tags: tuple[str, ...]) -> GeoSiteRules:
     result: GeoSiteRules = {}
     attribute_targets = {
         attribute: tag
-        for attribute, tag in (("cn", "geolocation-cn"), ("ads", "category-ads-all"))
+        for attribute, tag in (
+            ("cn", "geolocation-cn"),
+            ("!cn", "geolocation-!cn"),
+            ("ads", "category-ads-all"),
+        )
         if tag in tags
     }
     attribute_rules: GeoSiteRules = {
@@ -369,7 +376,7 @@ def main() -> None:
 
 def _run() -> None:
     rule_tags = (
-        ("geolocation-!cn", "loc-!cn", (), ()),
+        ("geolocation-!cn", "loc-!cn", PROXY_DOMAIN, PROXY_DOMAIN_SUFFIX),
         ("geolocation-cn", "loc-cn", DIRECT_DOMAIN, DIRECT_DOMAIN_SUFFIX),
     )
     upstream_rules = parse_dlc_plain(
@@ -398,7 +405,8 @@ def _run() -> None:
         domain.extend(extra_domains)
         domain_suffix.extend(extra_suffixes)
         geosite_rules[output_tag] = release(
-            domain, domain_suffix, domain_keyword, domain_regex, output_tag
+            domain, domain_suffix, domain_keyword, domain_regex, output_tag,
+            quanx_policy="proxy" if output_tag == "loc-!cn" else "direct",
         )
 
     release_geosite_files(geosite_rules)
