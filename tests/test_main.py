@@ -126,6 +126,10 @@ class RunTests(unittest.TestCase):
             "category-ads-all": (["ads.example"], ["upstream.example"], [], []),
             "geolocation-!cn": ([], ["foreign.example"], [], []),
             "geolocation-cn": ([], ["local.example"], [], []),
+            "category-public-tracker": (
+                ["tracker.example"], ["trackers.example"], ["tracker-keyword"],
+                [r"^tracker[0-9]+\.example$"],
+            ),
         }
         gfwlist = {tag: ([], [], [], []) for tag in ("gfw", "gfw-skip")}
         with (
@@ -138,7 +142,7 @@ class RunTests(unittest.TestCase):
 
         self.assertEqual(
             parse_dlc.call_args.args[1],
-            ("category-ads-all", "geolocation-!cn", "geolocation-cn"),
+            ("category-ads-all", "geolocation-!cn", "geolocation-cn", "category-public-tracker"),
         )
         args, kwargs = release.call_args_list[0]
         self.assertEqual(args[0], ["ads.example", *BLOCK_DOMAIN])
@@ -146,6 +150,12 @@ class RunTests(unittest.TestCase):
         self.assertEqual(args[3], list(BLOCK_DOMAIN_REGEX))
         self.assertEqual(args[4], "reject")
         self.assertEqual(kwargs, {"quanx_policy": "reject"})
+        for call_index in (2, 4):  # loc-cn and gfw-skip
+            direct_args = release.call_args_list[call_index].args
+            for values, additions in zip(direct_args[:4], upstream["category-public-tracker"]):
+                for value in additions:
+                    self.assertIn(value, values)
+        self.assertEqual(release.call_args_list[4].kwargs, {"quanx_policy": "direct"})
 
 
 class CleanDomainsTests(unittest.TestCase):

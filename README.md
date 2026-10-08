@@ -8,9 +8,9 @@
 
 - `reject`：合并 `v2fly/domain-list-community` 的 `category-ads-all`、所有列表中带 `@ads` 属性的规则及手工补充
 - `gfw`：代理域名
-- `gfw-skip`：白名单及补充直连域名
+- `gfw-skip`：白名单、`category-public-tracker` 及补充直连域名
 - `loc-!cn`：非中国大陆域名
-- `loc-cn`：面向中国大陆网络的直连规则，包含带 `@cn` 属性的规则及手工补充
+- `loc-cn`：面向中国大陆网络的直连规则，包含带 `@cn` 属性的规则、`category-public-tracker` 及手工补充
 
 URL 及通配符规则会转换为域名规则，白名单例外单独写入 `gfw-skip`。
 

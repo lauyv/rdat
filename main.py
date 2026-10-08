@@ -478,8 +478,16 @@ def _run() -> None:
     )
     upstream_rules = parse_dlc_plain(
         "https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat_plain.yml",
-        ("category-ads-all", *(rule[0] for rule in rule_tags)),
+        (
+            "category-ads-all",
+            *(rule[0] for rule in rule_tags),
+            "category-public-tracker",
+        ),
     )
+
+    tracker_rules = upstream_rules["category-public-tracker"]
+    for destination, additions in zip(upstream_rules["geolocation-cn"], tracker_rules):
+        destination.extend(additions)
 
     geosite_rules: GeoSiteRules = {}
     reject_rules = upstream_rules["category-ads-all"]
@@ -500,6 +508,8 @@ def _run() -> None:
     gfwlist_rules = parse_gfwlist(
         "https://raw.githubusercontent.com/gfwlist/gfwlist/master/list.txt"
     )
+    for destination, additions in zip(gfwlist_rules["gfw-skip"], tracker_rules):
+        destination.extend(additions)
     gfwlist_rules["gfw-skip"][0].extend(DIRECT_DOMAIN)
     gfwlist_rules["gfw-skip"][1].extend(DIRECT_DOMAIN_SUFFIX)
     for tag, quanx_policy in (("gfw", "proxy"), ("gfw-skip", "direct")):
