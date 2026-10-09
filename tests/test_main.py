@@ -114,7 +114,9 @@ class ParseDLCTests(unittest.TestCase):
                 [r"^cn[0-9]+\.example$"],
             ),
         )
-        self.assertEqual(rules["geolocation-!cn"], (["foreign.example"], ["apple.com"], [], []))
+        self.assertEqual(
+            rules["geolocation-!cn"], (["foreign.example"], ["apple.com"], [], [])
+        )
 
     def test_collects_negated_cn_with_exact_attributes_and_all_rule_types(self):
         additions = [
@@ -123,20 +125,34 @@ class ParseDLCTests(unittest.TestCase):
             "keyword:foreign-service:@!cn",
             r"regexp:^foreign[0-9]+\.example$:@!cn",
         ]
-        source = {"lists": [
-            {"name": "vendor", "rules": additions + [
-                "full:similar.example:@!cn2", "full:local.example:@cn",
-                "full:untagged.example",
-            ]},
-            {"name": "geolocation-!cn", "rules": [additions[0]]},
-            {"name": "duplicate", "rules": additions},
-        ]}
-        with patch("main.urlopen", return_value=BytesIO(yaml.safe_dump(source).encode())):
+        source = {
+            "lists": [
+                {
+                    "name": "vendor",
+                    "rules": additions
+                    + [
+                        "full:similar.example:@!cn2",
+                        "full:local.example:@cn",
+                        "full:untagged.example",
+                    ],
+                },
+                {"name": "geolocation-!cn", "rules": [additions[0]]},
+                {"name": "duplicate", "rules": additions},
+            ]
+        }
+        with patch(
+            "main.urlopen", return_value=BytesIO(yaml.safe_dump(source).encode())
+        ):
             rules = parse_dlc_plain("fixture", ("geolocation-!cn",))
-        self.assertEqual(rules["geolocation-!cn"], (
-            ["foreign.example"], ["foreign.example"], ["foreign-service"],
-            [r"^foreign[0-9]+\.example$"],
-        ))
+        self.assertEqual(
+            rules["geolocation-!cn"],
+            (
+                ["foreign.example"],
+                ["foreign.example"],
+                ["foreign-service"],
+                [r"^foreign[0-9]+\.example$"],
+            ),
+        )
 
     def test_missing_cn_list_is_still_an_error(self):
         source = b'lists:\n- name: apple\n  rules: ["full:example.com:@cn"]\n'
@@ -154,20 +170,29 @@ class RunTests(unittest.TestCase):
             "geolocation-!cn": ([], ["foreign.example"], [], []),
             "geolocation-cn": ([], ["local.example"], [], []),
             "category-public-tracker": (
-                ["tracker.example"], ["trackers.example"], ["tracker-keyword"],
+                ["tracker.example"],
+                ["trackers.example"],
+                ["tracker-keyword"],
                 [r"^tracker[0-9]+\.example$"],
             ),
         }
         with (
             patch("main.parse_dlc_plain", return_value=upstream) as parse_dlc,
-            patch("main.release", side_effect=lambda *args, **kwargs: args[:4]) as release,
+            patch(
+                "main.release", side_effect=lambda *args, **kwargs: args[:4]
+            ) as release,
             patch("main.release_geosite_files"),
         ):
             _run()
 
         self.assertEqual(
             parse_dlc.call_args.args[1],
-            ("category-ads-all", "geolocation-!cn", "geolocation-cn", "category-public-tracker"),
+            (
+                "category-ads-all",
+                "geolocation-!cn",
+                "geolocation-cn",
+                "category-public-tracker",
+            ),
         )
         args, kwargs = release.call_args_list[0]
         self.assertEqual(args[0], ["ads.example", *BLOCK_DOMAIN])
@@ -180,11 +205,43 @@ class RunTests(unittest.TestCase):
         direct_args = release.call_args_list[2].args
         self.assertEqual(direct_args[4], "loc-cn")
         self.assertEqual(release.call_args_list[2].kwargs, {"quanx_policy": "direct"})
-        for values, additions in zip(direct_args[:4], upstream["category-public-tracker"]):
+        for values, additions in zip(
+            direct_args[:4], upstream["category-public-tracker"]
+        ):
             for value in additions:
                 self.assertIn(value, values)
         self.assertEqual(len(release.call_args_list), 3)
 
+    def test_reject_exclusions_apply_after_manual_additions_only_to_reject(self):
+        excluded = ["dns.weixin.qq.com", "dns.weixin.qq.com.cn"]
+        upstream = {
+            "category-ads-all": (
+                ["ads.example", *excluded],
+                [*excluded, "dns.weixin.qq.com.example", "other.example"],
+                [],
+                [],
+            ),
+            "geolocation-cn": (excluded.copy(), [], [], []),
+            "geolocation-!cn": ([], [], [], []),
+            "category-public-tracker": ([], [], [], []),
+        }
+        with (
+            patch("main.parse_dlc_plain", return_value=upstream),
+            patch("main.BLOCK_DOMAIN", tuple(excluded)),
+            patch("main.BLOCK_DOMAIN_SUFFIX", tuple(excluded)),
+            patch(
+                "main.release", side_effect=lambda *args, **kwargs: args[:4]
+            ) as output,
+            patch("main.release_geosite_files") as geosite,
+        ):
+            _run()
+        reject = output.call_args_list[0].args
+        self.assertEqual(reject[0], ["ads.example"])
+        self.assertEqual(reject[1], ["dns.weixin.qq.com.example", "other.example"])
+        direct = output.call_args_list[2].args
+        for value in excluded:
+            self.assertIn(value, direct[0])
+        self.assertEqual(geosite.call_args.args[0]["reject"], reject[:4])
 
 
 class CleanDomainsTests(unittest.TestCase):
@@ -208,8 +265,13 @@ class ReleaseTests(unittest.TestCase):
             os.chdir(directory)
             try:
                 Path("dist").mkdir()
-                for dumper in dict.fromkeys((yaml.SafeDumper, getattr(yaml, "CSafeDumper", yaml.SafeDumper))):
-                    with self.subTest(dumper=dumper.__name__), patch("main.YAML_DUMPER", dumper):
+                for dumper in dict.fromkeys(
+                    (yaml.SafeDumper, getattr(yaml, "CSafeDumper", yaml.SafeDumper))
+                ):
+                    with (
+                        self.subTest(dumper=dumper.__name__),
+                        patch("main.YAML_DUMPER", dumper),
+                    ):
                         release_clash_file("fixture", domains, suffixes)
                         output = Path("dist/fixture.yaml").read_text()
                         self.assertEqual(yaml.safe_load(output), payload)
@@ -235,13 +297,20 @@ class ReleaseTests(unittest.TestCase):
                 clash = yaml.safe_load(Path("dist/reject.yaml").read_text())["payload"]
                 quanx = Path("dist/reject.quanx").read_text().splitlines()
                 self.assertEqual(singbox.call_args.args[3], ["^z", "^a"])
-                self.assertEqual(singbox.call_args.args[4], ["zz", "aa", "c.example", "b.example"])
+                self.assertEqual(
+                    singbox.call_args.args[4], ["zz", "aa", "c.example", "b.example"]
+                )
             finally:
                 os.chdir(previous_cwd)
 
         self.assertEqual(
             rules,
-            (["z.example", "a.example"], ["m.example", "b.example"], ["zz", "aa", "c.example", "b.example"], ["^z", "^a"]),
+            (
+                ["z.example", "a.example"],
+                ["m.example", "b.example"],
+                ["zz", "aa", "c.example", "b.example"],
+                ["^z", "^a"],
+            ),
         )
         self.assertEqual(
             surge,

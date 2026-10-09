@@ -6,9 +6,9 @@
 
 生成以下三个标签：
 
-- `reject`：合并 `category-ads-all`、所有列表中带 `@ads` 属性的规则及手动补充
-- `loc-!cn`：合并 `geolocation-!cn`、所有列表中带 `@!cn` 属性的规则及手动补充
-- `loc-cn`：合并 `geolocation-cn`、`category-public-tracker`、所有列表中带 `@cn` 属性的规则及手动补充
+- `reject`：合并 `category-ads-all`、所有列表中带 `@ads` 属性的规则及手动修正
+- `loc-!cn`：合并 `geolocation-!cn`、所有列表中带 `@!cn` 属性的规则及手动修正
+- `loc-cn`：合并 `geolocation-cn`、`category-public-tracker`、所有列表中带 `@cn` 属性的规则及手动修正
 
 `@cn`、`@!cn` 和 `@ads` 按完整属性名分别匹配，合并后去重。带有多个匹配属性的规则会进入对应的多个集合。
 

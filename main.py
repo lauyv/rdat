@@ -59,6 +59,12 @@ BLOCK_DOMAIN_REGEX = (
 
 DIRECT_DOMAIN = ("api.github.com",)
 
+# Remove matching full/domain entries after all reject sources are merged.
+REJECT_EXCLUDE = (
+    "dns.weixin.qq.com",
+    "dns.weixin.qq.com.cn",
+)
+
 DIRECT_DOMAIN_SUFFIX = (
     "cn",
     "local",
@@ -402,6 +408,8 @@ def _run() -> None:
     reject_rules[0].extend(BLOCK_DOMAIN)
     reject_rules[1].extend(BLOCK_DOMAIN_SUFFIX)
     reject_rules[3].extend(BLOCK_DOMAIN_REGEX)
+    for values in reject_rules[:2]:
+        values[:] = [value for value in values if value not in REJECT_EXCLUDE]
     geosite_rules["reject"] = release(*reject_rules, "reject", quanx_policy="reject")
     for upstream_tag, output_tag, extra_domains, extra_suffixes, policy in rule_tags:
         domain, domain_suffix, domain_keyword, domain_regex = upstream_rules[

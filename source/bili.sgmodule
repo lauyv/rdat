@@ -3,14 +3,13 @@
 #!system=ios
 
 [Rule]
-DOMAIN,upos-sz-mirror14b.bilivideo.com,REJECT,pre-matching
-DOMAIN-SUFFIX,nexusedgeio.com,REJECT,pre-matching
 DOMAIN-SUFFIX,ahdohpiechei.com,REJECT,pre-matching
+DOMAIN-SUFFIX,mountaintoys.cn,REJECT,pre-matching
+DOMAIN-SUFFIX,nexusedgeio.com,REJECT,pre-matching
 DOMAIN-SUFFIX,szbdyd.com,REJECT,pre-matching
 DOMAIN-WILDCARD,*302*.bilivideo.com,REJECT,pre-matching
-DOMAIN-WILDCARD,*-pcdn-*.biliapi.net,REJECT,pre-matching
-DOMAIN-WILDCARD,*-p2p-*.chat.bilibili.com,REJECT,pre-matching
-DOMAIN-WILDCARD,*-live-tracker-*.chat.bilibili.com,REJECT,pre-matching
+DOMAIN-WILDCARD,*pcdn*.biliapi.net,REJECT,pre-matching
+DOMAIN-WILDCARD,*tracker*.biliapi.net,REJECT,pre-matching
 
 [Map Local]
 ^https?:\/\/app\.bilibili\.(?:com|net)\/x\/v2\/search\/square data-type=text data="{}"
