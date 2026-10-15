@@ -4,11 +4,12 @@
 
 ## 规则
 
-生成以下三个标签：
+生成以下四个标签：
 
 - `reject`：合并 `category-ads-all`、所有列表中带 `@ads` 属性的规则及手动修正
 - `loc-!cn`：合并 `geolocation-!cn`、所有列表中带 `@!cn` 属性的规则及手动修正
 - `loc-cn`：合并 `geolocation-cn`、`category-public-tracker`、所有列表中带 `@cn` 属性的规则及手动修正
+- `bili`：提取上游 `bilibili` 标签，单独生成哔哩哔哩域名分流规则
 
 `@cn`、`@!cn` 和 `@ads` 按完整属性名分别匹配，合并后去重。带有多个匹配属性的规则会进入对应的多个集合。
 
@@ -16,7 +17,7 @@
 
 客户端应按 `reject` → `loc-cn` → `loc-!cn` 的顺序匹配，让广告拦截优先于直连，并处理可能存在的域名覆盖重叠。
 
-Quantumult X 产物分别使用 `reject`、`direct` 和 `proxy` 策略。
+Quantumult X 的 `reject` 使用 `reject` 策略，`loc-cn` 和 `bili` 使用 `direct`，`loc-!cn` 使用 `proxy`。
 
 ## 发布
 
@@ -28,7 +29,7 @@ GitHub Actions 每天构建一次，并在 `main` 更新时自动构建。产物
 | `<tag>.list`     | Surge Domain Set                                  |
 | `<tag>.quanx`    | Quantumult X Filter                               |
 | `<tag>.srs`      | sing-box Binary Rule Set                          |
-| `geosite.dat`    | V2Ray GeoSite，包含 `reject`、`loc-cn`、`loc-!cn` |
+| `geosite.dat`    | V2Ray GeoSite，包含 `reject`、`loc-cn`、`loc-!cn`、`bili` |
 | `ext/*.quanx`    | Quantumult X 重写规则                             |
 | `ext/*.sgmodule` | Surge 模块                                        |
 

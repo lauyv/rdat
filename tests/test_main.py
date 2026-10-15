@@ -169,6 +169,7 @@ class RunTests(unittest.TestCase):
             "category-ads-all": (["ads.example"], ["upstream.example"], [], []),
             "geolocation-!cn": ([], ["foreign.example"], [], []),
             "geolocation-cn": ([], ["local.example"], [], []),
+            "bilibili": (["api.bilibili.com"], ["bilivideo.com"], [], []),
             "category-public-tracker": (
                 ["tracker.example"],
                 ["trackers.example"],
@@ -191,6 +192,7 @@ class RunTests(unittest.TestCase):
                 "category-ads-all",
                 "geolocation-!cn",
                 "geolocation-cn",
+                "bilibili",
                 "category-public-tracker",
             ),
         )
@@ -210,7 +212,9 @@ class RunTests(unittest.TestCase):
         ):
             for value in additions:
                 self.assertIn(value, values)
-        self.assertEqual(len(release.call_args_list), 3)
+        self.assertEqual(release.call_args_list[3].args, (*upstream["bilibili"], "bili"))
+        self.assertEqual(release.call_args_list[3].kwargs, {"quanx_policy": "direct"})
+        self.assertEqual(len(release.call_args_list), 4)
 
     def test_reject_exclusions_apply_after_manual_additions_only_to_reject(self):
         excluded = ["dns.weixin.qq.com", "dns.weixin.qq.com.cn"]
@@ -223,6 +227,7 @@ class RunTests(unittest.TestCase):
             ),
             "geolocation-cn": (excluded.copy(), [], [], []),
             "geolocation-!cn": ([], [], [], []),
+            "bilibili": ([], [], [], []),
             "category-public-tracker": ([], [], [], []),
         }
         with (
