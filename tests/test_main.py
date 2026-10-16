@@ -17,6 +17,7 @@ from main import (
     parse_dlc_plain,
     release,
     release_clash_file,
+    release_geosite_files,
 )
 
 
@@ -171,6 +172,7 @@ class RunTests(unittest.TestCase):
             "geolocation-cn": ([], ["local.example"], [], []),
             "bilibili": (["api.bilibili.com"], ["bilivideo.com"], [], []),
             "category-ai-!cn": (["api.ai.example"], ["ai.example"], [], []),
+            "netflix": ([], ["netflix.com"], [], []),
             "category-public-tracker": (
                 ["tracker.example"],
                 ["trackers.example"],
@@ -195,6 +197,7 @@ class RunTests(unittest.TestCase):
                 "geolocation-cn",
                 "bilibili",
                 "category-ai-!cn",
+                "netflix",
                 "category-public-tracker",
             ),
         )
@@ -223,7 +226,10 @@ class RunTests(unittest.TestCase):
         self.assertEqual(
             geosite.call_args.args[0]["ai-!cn"], upstream["category-ai-!cn"]
         )
-        self.assertEqual(len(release.call_args_list), 5)
+        self.assertEqual(release.call_args_list[5].args, (*upstream["netflix"], "netflix"))
+        self.assertEqual(release.call_args_list[5].kwargs, {"quanx_policy": "proxy"})
+        self.assertEqual(geosite.call_args.args[0]["netflix"], upstream["netflix"])
+        self.assertEqual(len(release.call_args_list), 6)
 
     def test_reject_exclusions_apply_after_manual_additions_only_to_reject(self):
         excluded = ["dns.weixin.qq.com", "dns.weixin.qq.com.cn"]
@@ -238,6 +244,7 @@ class RunTests(unittest.TestCase):
             "geolocation-!cn": ([], [], [], []),
             "bilibili": ([], [], [], []),
             "category-ai-!cn": ([], [], [], []),
+            "netflix": ([], [], [], []),
             "category-public-tracker": ([], [], [], []),
         }
         with (
@@ -257,6 +264,16 @@ class RunTests(unittest.TestCase):
         for value in excluded:
             self.assertIn(value, direct[0])
         self.assertEqual(geosite.call_args.args[0]["reject"], reject[:4])
+
+
+class GeoDatabaseTests(unittest.TestCase):
+    def test_geosite_includes_ai_and_netflix(self):
+        rules = {tag: ([], [], [], []) for tag in (
+            "reject", "loc-!cn", "loc-cn", "bili", "ai-!cn", "netflix"
+        )}
+        with patch("main.write_geosite_file") as output:
+            release_geosite_files(rules)
+        output.assert_called_once_with("dist/geosite.dat", rules)
 
 
 class CleanDomainsTests(unittest.TestCase):

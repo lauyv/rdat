@@ -105,6 +105,8 @@ GEOSITE_TAGS = (
     "loc-!cn",
     "loc-cn",
     "bili",
+    "ai-!cn",
+    "netflix",
 )
 
 
@@ -392,6 +394,7 @@ def _run() -> None:
         ("geolocation-cn", "loc-cn", DIRECT_DOMAIN, DIRECT_DOMAIN_SUFFIX, "direct"),
         ("bilibili", "bili", (), (), "direct"),
         ("category-ai-!cn", "ai-!cn", (), (), "proxy"),
+        ("netflix", "netflix", (), (), "proxy"),
     )
     upstream_rules = parse_dlc_plain(
         "https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat_plain.yml",
