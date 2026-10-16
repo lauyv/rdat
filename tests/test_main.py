@@ -170,6 +170,7 @@ class RunTests(unittest.TestCase):
             "geolocation-!cn": ([], ["foreign.example"], [], []),
             "geolocation-cn": ([], ["local.example"], [], []),
             "bilibili": (["api.bilibili.com"], ["bilivideo.com"], [], []),
+            "category-ai-!cn": (["api.ai.example"], ["ai.example"], [], []),
             "category-public-tracker": (
                 ["tracker.example"],
                 ["trackers.example"],
@@ -182,7 +183,7 @@ class RunTests(unittest.TestCase):
             patch(
                 "main.release", side_effect=lambda *args, **kwargs: args[:4]
             ) as release,
-            patch("main.release_geosite_files"),
+            patch("main.release_geosite_files") as geosite,
         ):
             _run()
 
@@ -193,6 +194,7 @@ class RunTests(unittest.TestCase):
                 "geolocation-!cn",
                 "geolocation-cn",
                 "bilibili",
+                "category-ai-!cn",
                 "category-public-tracker",
             ),
         )
@@ -214,7 +216,14 @@ class RunTests(unittest.TestCase):
                 self.assertIn(value, values)
         self.assertEqual(release.call_args_list[3].args, (*upstream["bilibili"], "bili"))
         self.assertEqual(release.call_args_list[3].kwargs, {"quanx_policy": "direct"})
-        self.assertEqual(len(release.call_args_list), 4)
+        self.assertEqual(
+            release.call_args_list[4].args, (*upstream["category-ai-!cn"], "ai-!cn")
+        )
+        self.assertEqual(release.call_args_list[4].kwargs, {"quanx_policy": "proxy"})
+        self.assertEqual(
+            geosite.call_args.args[0]["ai-!cn"], upstream["category-ai-!cn"]
+        )
+        self.assertEqual(len(release.call_args_list), 5)
 
     def test_reject_exclusions_apply_after_manual_additions_only_to_reject(self):
         excluded = ["dns.weixin.qq.com", "dns.weixin.qq.com.cn"]
@@ -228,6 +237,7 @@ class RunTests(unittest.TestCase):
             "geolocation-cn": (excluded.copy(), [], [], []),
             "geolocation-!cn": ([], [], [], []),
             "bilibili": ([], [], [], []),
+            "category-ai-!cn": ([], [], [], []),
             "category-public-tracker": ([], [], [], []),
         }
         with (
