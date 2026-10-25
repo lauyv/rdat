@@ -1,43 +1,44 @@
-# config see more at https://github.com/daeuniverse/dae/blob/main/example.dae
-# dscp see more at https://github.com/daeuniverse/dae/discussions/295
+# wget -O /etc/honk/data/geosite.dat 'https://gh-proxy.org/https://github.com/lauyv/rdat/raw/rel/geosite.dat'
+# wget -O /etc/honk/data/geoip.dat 'https://gh-proxy.org/https://github.com/lauyv/cnip/raw/rel/chnroutes.dat'
 
 global {
-  log_level: info
-  # if u not using dns bind, set dial_mode to domain++ prefer
-  dial_mode: domain
-  disable_waiting_network: false
+  bootstrap_resolver: '119.29.29.29:53'
+  check_interval: 300s
+  check_tolerance: 10ms
+  data_dir: '/etc/honk/data'
+  dial_mode: domain++
+  log_level: error
+  tcp_check_url: 'http://cp.cloudflare.com/generate_204'
+  udp_check_dns: '8.8.8.8'
   wan_interface: auto
   lan_interface: br-lan
-  tcp_check_url: 'http://cp.cloudflare.com'
-  udp_check_dns: '8.8.8.8'
-  check_interval: 30s
-  check_tolerance: 10ms
-  sniffing_timeout: 30ms
 }
 
 group {
   proxy {
+    filter: group(avg_hk)
+    filter: name(regex: '(?i)hk|tw|jp|港|台|日')
+    policy: select
+  }
+  avg_hk {
+    filter: name(keyword: 'HK')
     policy: min_moving_avg
   }
 }
 
-node {
-  socks5: 'socks5://127.0.0.1:7000'
-}
-
 subscription {
-  # Fill in your subscription links here.
-  my_sub: 'https://www.example.com/subscription/link'
+  kfc: 'https://www.example.com/subscription/link' { route: direct }
 }
 
 dns {
-  ipversion_prefer: 4
+  optimistic_cache: true
   upstream {
-    localdns: 'udp://223.5.5.5'
-    encryptdns: 'h3://dns.alidns.com'
+    localdns: 'udp://119.29.29.29' -> direct
+    encryptdns: 'tls://223.5.5.5' -> direct
   }
   routing {
     request {
+      qname(geosite:reject) -> reject
       qname(geosite:loc-cn) -> localdns
       fallback: encryptdns
     }
@@ -45,10 +46,25 @@ dns {
 }
 
 routing {
-  pname(NetworkManager, systemd-resolved, dnsmasq) -> must_direct
+  mac('00:00:00:00:00:00') -> direct(must)
   dscp(0x4) -> direct
+  domain(geosite:reject) -> block
   domain(geosite:loc-cn) -> direct
+  domain(geosite:loc-!cn) -> proxy
   dip(geoip:cn) -> direct
   dip(geoip:lan) -> direct
   fallback: proxy
+}
+
+experimental {
+    native_api {
+        enabled: true
+        listen: '0.0.0.0:9527'
+        secret: 'replace-with-your-random-token'
+        allow_anonymous_loopback: true
+        ui: 'embedded'
+    }
+    cache_file {
+        enabled: true
+    }
 }
