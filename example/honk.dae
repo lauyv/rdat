@@ -34,19 +34,21 @@ dns {
   optimistic_cache: true
   upstream {
     localdns: 'udp://119.29.29.29' -> direct
+    remotedns: 'udp://8.8.8.8' -> proxy
     encryptdns: 'tls://223.5.5.5' -> direct
   }
   routing {
     request {
       qname(geosite:reject) -> reject
       qname(geosite:loc-cn) -> localdns
+      qname(geosite:loc-!cn) -> remotedns
       fallback: encryptdns
     }
   }
 }
 
 routing {
-  mac('00:00:00:00:00:00') -> direct(must)
+  mac('00:00:00:00:00:00') && !dport(53) -> direct(must)
   dscp(0x4) -> direct
   domain(geosite:reject) -> block
   domain(geosite:loc-cn) -> direct
