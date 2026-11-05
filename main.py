@@ -66,7 +66,6 @@ REJECT_EXCLUDE = (
 )
 
 DIRECT_DOMAIN_SUFFIX = (
-    "cn",
     "local",
     "steamserver.net",
     "steamcontent.com",
