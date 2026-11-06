@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -323,13 +324,17 @@ def _encode_geosite(tag: str, rules: DomainResult) -> bytes:
 
 
 def write_geosite_file(filename: str, rules_by_tag: GeoSiteRules) -> None:
-    """Write a V2Ray-compatible GeoSiteList protobuf file."""
+    """Write a V2Ray-compatible GeoSiteList protobuf file and SHA-256 checksum."""
     # routercommon.GeoSiteList has one repeated GeoSite field named entry (1).
     with open(filename, "wb") as f:
         f.writelines(
             _protobuf_field(1, 2, _encode_geosite(tag, rules_by_tag[tag]))
             for tag in sorted(rules_by_tag)
         )
+    with open(filename, "rb") as f:
+        checksum = hashlib.file_digest(f, "sha256").hexdigest()
+    with open(f"{filename}.sha256sum", "w", encoding="utf-8") as f:
+        f.write(f"{checksum}  {os.path.basename(filename)}\n")
     log.info("Wrote GeoSite file: %s (%d tags)", filename, len(rules_by_tag))
 
 

@@ -32,6 +32,7 @@ GitHub Actions 每天构建一次，并在 `main` 更新时自动构建。产物
 | `<tag>.quanx`    | Quantumult X Filter                               |
 | `<tag>.srs`      | sing-box Binary Rule Set                          |
 | `geosite.dat`    | V2Ray GeoSite，包含 `reject`、`loc-cn`、`loc-!cn`、`bili`、`ai-!cn`、`netflix` |
+| `geosite.dat.sha256sum` | `geosite.dat` 的 SHA-256 校验文件              |
 | `ext/*.quanx`    | Quantumult X 重写规则                             |
 | `ext/*.sgmodule` | Surge 模块                                        |
 
@@ -49,6 +50,12 @@ https://github.com/lauyv/rdat/raw/rel/ai-!cn.srs
 https://github.com/lauyv/rdat/raw/rel/netflix.srs
 https://github.com/lauyv/rdat/raw/rel/ext/bili.quanx
 https://github.com/lauyv/rdat/raw/rel/ext/bili.sgmodule
+```
+
+将 `geosite.dat` 和 `geosite.dat.sha256sum` 下载到同一目录后，可校验文件完整性：
+
+```bash
+sha256sum -c geosite.dat.sha256sum
 ```
 
 ## 项目结构
